@@ -6,21 +6,58 @@ var bcrypt = require('bcryptjs');
 exports.signin = (req, res) => {
     db.user.findOne({
         where: {
-        email: req.body.email
+            email: req.body.email
         }
     }).then(user => {
         if (!user) {
-        return res.status(404).send('User Not Found.');
+            return res.status(404).send('User Not Found.');
         }
-    var passwordIsValid = bcrypt.compareSync(req.body.password,user.password);
-    if (!passwordIsValid) {
-    return res.status(401).send({ auth: false, accessToken: null,reason: "Invalid Password!" });
-    }
-    var token = jwt.sign({ id: user.id, name: user.name, email: user.email }, config.secret, {
-        expiresIn: 86400 // expires in 24 hours 
-    });
-        res.status(200).send({ auth: true, accessToken: token , usuario: user})
+        var passwordIsValid = bcrypt.compareSync(req.body.password.trim(), user.password.trim());
+        if (!passwordIsValid) {
+            return res.status(401).send({
+                auth: false,
+                accessToken: null,
+                reason: "Invalid Password!"
+            });
+        }
+        var token = jwt.sign({
+            id: user.id,
+            name: user.name,
+            email: user.email
+        }, config.secret, {
+            expiresIn: 86400 // expires in 24 hours
+        });
+        res.status(200).send({
+            auth: true,
+            accessToken: token,
+            user: user
+        });
     }).catch(err => {
         res.status(500).send('Error -> ' + err);
     });
 }
+exports.register = async(req, res, next) => {
+    try {
+        req.body.password = await bcrypt.hashSync(req.body.password, 10);
+        const user = await User.create(req.body);
+        res.status(200).json(user);
+    } catch (e) {
+        res.status(500).send({
+            message: 'Error ->' + error
+        })
+        next(error);
+    }
+};
+
+exports.listar = async(req, res, next) => {
+    try {
+        // const user = await User.findAll();
+        // res.status(200).json(user);
+        db.user.findAll().then(users => res.status(200).json(users))
+    } catch (e) {
+        res.status(500).send({
+            message: 'Error ->' + error
+        })
+        next(error);
+    }
+};
